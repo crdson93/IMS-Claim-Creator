@@ -1,4 +1,3 @@
-import tkinter as tk
 from tkinter import *
 from tkinter import ttk
 from tkinter import messagebox
@@ -163,11 +162,6 @@ def import_csv_data():
     csv_file_path = askopenfilename()
     v.set(csv_file_path)
 
-def custom_bank_list():
-    b = StringVar
-    banklist_file_path = askopenfilename()
-    b.banklist_file_path
-
 #load selected bank into fields
 def select_item(event):
     try:
@@ -283,7 +277,10 @@ def get_email():
     found = False
     for row in agent_list_sheet.rows:
         extension = row.cells[extension_col_index].value
-        if extension == int(extension_entry.get()):
+        if extension_entry.get() == '':
+            messagebox.showerror('Data Input Error', f'Please enter an extension!')
+            return
+        elif extension == int(extension_entry.get()):
             found = True
             citjha_email = row.cells[citjha_email_col_index].value
             citjha_email = str(citjha_email.lower())
@@ -320,7 +317,8 @@ def create_bank_core_claim():
             "context": f"iAdapter={bank_partition_text.get()};"
         }
         with open(f"{email_text.get()} {fi_Name_text.get()} Core claim.json", "w") as outfile:
-            outfile.write(json.dumps(template, indent=4))
+            jsonArray.append(template)
+            outfile.write(json.dumps(jsonArray, indent=4))
             messagebox.showinfo('Operation Completed', f'{email_text.get()} {fi_Name_text.get()} Core claim has been created!')
         op_list.insert(opindex, f'{fi_Name_text.get()} {email_text.get()} Core claim')
         opindex = (opindex+1)
@@ -367,14 +365,16 @@ def create_synapsys_claim():
                 return
             elif msg_box == 'yes':                    
                 with open(f"{email_text.get()} {fi_Name_text.get()} Synapsys claim.json", "w") as outfile:
-                    outfile.write(json.dumps(template, indent=4))
+                    jsonArray.append(template)
+                    outfile.write(json.dumps(jsonArray, indent=4))
                     messagebox.showinfo('Operation Completed', f'{email_text.get()} {fi_Name_text.get()} Synapsys claim has been created!')
                     op_list.insert(opindex, f'{email_text.get()} {fi_Name_text.get()} Synapsys claim')
                     opindex = (opindex+1)    
                     
         else:
                 with open(f"{email_text.get()} {fi_Name_text.get()} Synapsys claim.json", "w") as outfile:
-                    outfile.write(json.dumps(template, indent=4))
+                    jsonArray.append(template)
+                    outfile.write(json.dumps(jsonArray, indent=4))
                     messagebox.showinfo('Operation Completed', f'{email_text.get()} {fi_Name_text.get()} Synapsys claim has been created!')
                     op_list.insert(opindex, f'{email_text.get()} {fi_Name_text.get()} Synapsys claim')
                     opindex = (opindex+1)
@@ -980,83 +980,67 @@ def create_all_bank_core_csv_claim():
 
 
 #create one CU Synapsys claim for All Agents from Agent list SMARTSHEET
-def create_all_agent_CU_synapsys_claim(cusynopt, banksynopt, bankcoreopt):
-        print(cusynopt, banksynopt, bankcoreopt)
+def create_all_agent_CU_synapsys_claim():
         jsonArray = []
         global opindex
         seen_agent_name = set()
         agentcount = 0
-        skillopt = StringVar
         if fi_Name_text.get() == '' or fi_syn_text.get() == '':
             messagebox.showerror('Data Input Error', 'Please Enter FI Information!')
             return
+        if FI_type_text.get() != 'CU':
+            msg_box = messagebox.askquestion("Please Confirm","The FI info input is not listed as a CU, are you sure you want to continue?", icon='warning')
+            if msg_box == 'no':
+                messagebox.showerror('Operation Cancelled', 'No Claims Created!')
+                return
+            elif msg_box == 'yes':
             # Iterate through the rows in the CSV file
-        if cusynopt == 1:
-            skillopt == 'CU'
-        elif banksynopt == 1:
-            skillopt == 'Banking'
-        elif (cusynopt == 1 and banksynopt == 1) or (cusynopt == 1 and bankcoreopt == 1):
-            messagebox.showerror('Data Input Error', 'Please check selected operations for accuracy!')
-            return
-        for row in agent_list_sheet.rows[start_row_index:]:
-            # Get the values in the "Agent Name" and "Skill" columns
-            agent_name = row.cells[agent_name_col_index].value
-            skill = row.cells[skill_col_index].value
-            extension = row.cells[extension_col_index].value    
-            citjha_email = row.cells[citjha_email_col_index].value
-            # Check if the skill is "CU"
-            if extension is None:
-                continue
-            if citjha_email is None:
-                continue
-            if skill == skillopt:
-                # Iterate through the rows in the database
-                for row in agent_list_sheet.rows:
-                    extension = str(extension)
-                    extension = extension[len(extension)-6:len(extension)-2]
-                    if agent_name in seen_agent_name:
+                for row in agent_list_sheet.rows[start_row_index:]:
+                    # Get the values in the "Agent Name" and "Skill" columns
+                    agent_name = row.cells[agent_name_col_index].value
+                    skill = row.cells[skill_col_index].value
+                    extension = row.cells[extension_col_index].value
+                    citjha_email = row.cells[citjha_email_col_index].value
+                    # Check if the skill is "CU"
+                    if extension is None:
                         continue
-                    if citjha_email[len(citjha_email)-11:len(citjha_email)] != '@citjha.com':
-                        messagebox.showerror('Smartsheet Data Error', f'Please check the CITJHA Domain column on the Agent list smartsheet and ensure the email is valid for {agent_name}!')
-                        return
-                    elif len(extension) != 4 or (not extension.isdigit() or (extension[0] != '4' and extension[0] != '5')):
-                        messagebox.showerror('Smartsheet Data Error', f'Please check the Extension column on the Agent list smartsheet and ensure the extension is valid for {agent_name}!')
-                        return
-                    elif seen_agent_name is None:
-                        pass
-                    agentcount += 1
-                # add fi_name value to seen set
-                    seen_agent_name.add(agent_name)
-                    # Create a dictionary with the data
-                    data = {
-                        "userName": citjha_email,
-                        "appliesTo": "http://jackhenry.com/application/synapsys",
-                        "default": False,
-                        "description": fi_Name_text.get(),
-                        "routingId": "1",
-                        "name": f"JHA{int(extension)}",
-                        "context": f"BANK={fi_syn_text.get()};"
-                    }
-                    jsonArray.append(data)
-                    if bankcoreopt == 'True':
-                        data = {
-                        "userName": citjha_email,
-                        "appliesTo": "http://jackhenry.com/application/synapsys",
-                        "default": False,
-                        "description": fi_Name_text.get(),
-                        "routingId": "1",
-                        "name": bank_core_text.get(),
-                        "context": f"iAdapter={bank_partition_text.get()};"
-                       }
-                        jsonArray.append(data)
-                    #open a file to put the object(s) with our requested info in to a json file
-                    
+                    if citjha_email is None:
+                        continue
+                    if skill == 'CU':
+                        # Iterate through the rows in the database
+                        for row in agent_list_sheet.rows:
+                            extension = str(extension)
+                            extension = extension[len(extension)-6:len(extension)-2]
+                            if agent_name in seen_agent_name:
+                                continue
+                            if citjha_email[len(citjha_email)-11:len(citjha_email)] != '@citjha.com':
+                                messagebox.showerror('Smartsheet Data Error', f'Please check the CITJHA Domain column on the Agent list smartsheet and ensure the email is valid for {agent_name}!')
+                                return
+                            elif len(extension) != 4 or (not extension.isdigit() or (extension[0] != '4' and extension[0] != '5')):
+                                messagebox.showerror('Smartsheet Data Error', f'Please check the Extension column on the Agent list smartsheet and ensure the extension is valid for {agent_name}!')
+                                return
+                            elif seen_agent_name is None:
+                                pass
+                            agentcount += 1
+                        # add fi_name value to seen set
+                            seen_agent_name.add(agent_name)
+                            # Create a dictionary with the data
+                            data = {
+                                "userName": citjha_email,
+                                "appliesTo": "http://jackhenry.com/application/synapsys",
+                                "default": False,
+                                "description": fi_Name_text.get(),
+                                "routingId": "1",
+                                "name": f"JHA{int(extension)}",
+                                "context": f"BANK={fi_syn_text.get()};"
+                            }
+                            #open a file to put the object(s) with our requested info in to a json file
+                            jsonArray.append(data)
             with open(f'ALL CU Agents {fi_Name_text.get()} Synapsys Claim.json', 'w') as json_file:
                 json_file.write(json.dumps(jsonArray, indent=4))
-        messagebox.showinfo('Operation Completed', f'All CU Agent {fi_Name_text.get()} Synapsys claim for {agentcount} agents from Smartsheet has been created!')
-        op_list.insert(opindex, f'All CU Agent {fi_Name_text.get()} Synapsys claim')
-        opindex = (opindex+1)
-        """
+            messagebox.showinfo('Operation Completed', f'All CU Agent {fi_Name_text.get()} Synapsys claim for {agentcount} agents from Smartsheet has been created!')
+            op_list.insert(opindex, f'All CU Agent {fi_Name_text.get()} Synapsys claim')
+            opindex = (opindex+1)
         else:
             for row in agent_list_sheet.rows[start_row_index:]:
                     # Get the values in the "Agent Name" and "Skill" columns
@@ -1104,7 +1088,7 @@ def create_all_agent_CU_synapsys_claim(cusynopt, banksynopt, bankcoreopt):
             messagebox.showinfo('Operation Completed', f'All CU Agent {fi_Name_text.get()} Synapsys claim for {agentcount} agents from Smartsheet has been created!')
             op_list.insert(opindex, f'All CU Agent {fi_Name_text.get()} Synapsys claim')
             opindex = (opindex+1)
-            """
+
 
 #create one Bank Synapsys claim from Agent list SMARTSHEET
 def create_all_agent_bank_synapsys_claim():
@@ -1241,7 +1225,7 @@ extension_entry.grid(row=2, column=1, sticky=W)
 #get email button from smartsheet
 get_extension_btn = ttk.Button(app, text='Get Email!', width=15, command=get_email)
 get_extension_btn.grid(row=2, column=2, sticky=W)
-"""
+
 #create single bank core claim button
 bank_core_btn = ttk.Button(app, text='Create Single Bank Core Claim!', width=25, command=create_bank_core_claim)
 bank_core_btn.grid(row=3, column=0, sticky=N)
@@ -1265,28 +1249,6 @@ agent_synapsys_btn.grid(row=5, column=0, sticky=N)
 #create trainer scripts button
 agent_synapsys_btn = ttk.Button(app, text='Create Trainer Scripts!', width=20, command=create_trainer_scripts_claim)
 agent_synapsys_btn.grid(row=5, column=1, sticky=N)
-"""
-
-option_1_var = tk.BooleanVar()
-option_2_var = tk.BooleanVar()
-option_3_var = tk.BooleanVar()
-option_4_var = tk.BooleanVar()
-option_5_var = tk.BooleanVar()
-option_6_var = tk.BooleanVar()
-
-
-check_button1 = ttk.Checkbutton(app, text="Single Bank Core", variable=option_1_var)
-check_button2 = ttk.Checkbutton(app, text="Single Synapsys", variable=option_2_var)
-check_button3 = ttk.Checkbutton(app, text="All Bank Core", variable=option_3_var)
-check_button4 = ttk.Checkbutton(app, text="All Bank Synapsys", variable=option_4_var)
-check_button5 = ttk.Checkbutton(app, text="All CU Synapsys", variable=option_5_var)
-check_button6 = ttk.Checkbutton(app, text="Trainer List Core and Synapsys", variable=option_6_var)
-check_button1.grid(row=3, column=0)
-check_button2.grid(row=3, column=1)
-check_button3.grid(row=4, column=0)
-check_button4.grid(row=4, column=1)
-check_button5.grid(row=5, column=0, sticky=N)
-check_button6.grid(row=5, column=1, sticky=N)
 
 #FI Name Entry
 fi_Name_text = StringVar()
@@ -1346,7 +1308,6 @@ bank_list.bind('<<ListboxSelect>>', select_item)
 multi_label = Label(app, text='To make a multi user claim upload a csv with agent emails in the 1st column with citjha.com domain and 4 digit extensions in the 2nd column and select your operation.', font=('bold', 18), wraplength=500, pady=10)
 multi_label.grid(row=0, column=4, columnspan=4, sticky=W+E)
 
-"""
 #create all CU synapsys from CSV claim button
 bank_core_btn = ttk.Button(app, text='Create ALL CU Synapsys Claim!', width=30, command=create_all_CU_synapsys_csv_claim)
 bank_core_btn.grid(row=3, column=5, pady=5)
@@ -1358,24 +1319,11 @@ bank_core_btn.grid(row=4, column=5, pady=5)
 #create all Bank core from CSV claim button
 bank_core_btn = ttk.Button(app, text='Create ALL Bank Core Claim!', width=30, command=create_all_bank_core_csv_claim)
 bank_core_btn.grid(row=5, column=5, pady=5, sticky=N)
-"""
-
-option_10_var = tk.BooleanVar()
-option_11_var = tk.BooleanVar()
-option_12_var = tk.BooleanVar()
-
-check_button10 = ttk.Checkbutton(app, text="CSV Agent All CU Synapsys", variable=option_10_var)
-check_button11 = ttk.Checkbutton(app, text="CSV Agent All Bank Synapsys", variable=option_11_var)
-check_button12 = ttk.Checkbutton(app, text="CSV Agent All Bank Core", variable=option_12_var)
-
-check_button10.grid(row=3, column=5)
-check_button11.grid(row=4, column=5)
-check_button12.grid(row=5, column=5, sticky=N)
 
 #middle instructions
 multi_label = Label(app, text='To make a new FI claim with all corresponding agents inthe Agent List Smartsheet input the FI information and select your operation.', font=('bold', 18), wraplength=500, pady=10)
 multi_label.grid(row=5, column=2, columnspan=2, sticky=S)
-"""
+
 #create all agent one CU synapsys claim button
 cu_agent_btn = ttk.Button(app, text='Create all CU agent Synapsys Claim!', width=30, command=create_all_agent_CU_synapsys_claim)
 cu_agent_btn.grid(row=6, column=2, columnspan=2, pady=5)
@@ -1387,35 +1335,18 @@ bank_agent_btn.grid(row=7, column=2, columnspan=2, pady=5)
 #create all agent one Bank core claim button
 bank_core_agent_btn = ttk.Button(app, text='Create all Bank agent Core Claim!', width=30, command=create_all_agent_bank_core_claim)
 bank_core_agent_btn.grid(row=8, column=2, columnspan=2, pady=5)
-"""
-option_7_var = tk.IntVar()
-option_8_var = tk.IntVar()
-option_9_var = tk.IntVar()
 
-check_button7 = ttk.Checkbutton(app, text="All CU Agents Single CU Synapsys", onvalue='1', offvalue='0', variable=option_7_var)
-check_button8 = ttk.Checkbutton(app, text="All Bank Agents Single Bank Synapsys", onvalue='1', offvalue='0', variable=option_8_var)
-check_button9 = ttk.Checkbutton(app, text="All Bank Agents Single Bank Core", onvalue='1', offvalue='0', variable=option_9_var)
-
-check_button7.grid(row=6, column=2)
-check_button8.grid(row=7, column=2)
-check_button9.grid(row=8, column=2)
-
-option_7 = option_7_var.get()
-option_8 = option_8_var.get()
-option_9 = option_9_var.get()
-
-print(option_7,option_8,option_9)
 #browse input file, open CSV button
 ttk.Label(app, text='File Path').grid(row=0, column=4,sticky=S)
 ttk.Button(app, text='Browse Input File',command=import_csv_data).grid(row=2, column=4)
 ttk.Entry(app, textvariable=v, width=80).grid(row=1, column=4, columnspan=3)
 
 #operations to create and delete claims from processing queue, not currently active functionality.
-
-#create claims
-create_claim_btn = ttk.Button(app, text='CREATE CLAIMS!', width=30, command=lambda:create_all_agent_CU_synapsys_claim(option_7, option_8, option_9))
-create_claim_btn.grid(row=11, column=3, columnspan=2, rowspan=2, pady=5, sticky=NSEW)
 """
+#create claims
+create_claim_btn = ttk.Button(app, text='CREATE CLAIMS!', width=30, command=lambda:create_claim(jsonArray))
+create_claim_btn.grid(row=11, column=3, columnspan=2, rowspan=2, pady=5, sticky=NSEW)
+
 #delete claims
 delete_claim_btn = ttk.Button(app, text='DELETE SELECTED CLAIM!', width=30, command=lambda:delete_claim(jsonArray, op_list))
 delete_claim_btn.grid(row=12, column=6, pady=5)
@@ -1423,7 +1354,7 @@ delete_claim_btn.grid(row=12, column=6, pady=5)
 
 #operations completed label
 op_label = Label(app, text='Operation Queue', font=('bold', 16), wraplength=200, pady=2)
-op_label.grid(row=12, column=5, sticky=S)   
+op_label.grid(row=12, column=5, sticky=S)
 #operations List
 op_list.grid(row=13, column=4, columnspan=2, rowspan=3, pady=10, padx=10)
 # Create scrollbar

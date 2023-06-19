@@ -9,23 +9,21 @@ jhblue = _from_rgb((26, 54, 104))
 header_f = ("Poppins", 16, "bold")  
 body_f = ("Poppins", 12)
 
-
-class Styles:
-    def __init__(self):
-        self.style = ttk.Style()
-
 #Frame for single agent claim creation
 class SingleAgent(ttk.Frame):
-    def __init__(self, master=None):
+    def __init__(self, master):
         super().__init__(master)
         
-        self.name_label = ttk.Label(self, text = "Agent Name", font = body_f, style = 'Header.TLabel')
-        self.name_entry = ttk.Entry(self, background = jhblue)
+        self.name_label = ttk.Label(self, text = "Agent Name ", font = body_f, style = 'Header.TLabel')
+        self.name_entry = tk.Entry(self, font = body_f)
+        
+        self.extension_label = ttk.Label(self, text = "Agent Extension ", font = body_f, style = 'Header.TLabel')
+        self.extension_entry = tk.Entry(self, font = body_f)
         
         self.name_label.pack(side=tk.LEFT)
         self.name_entry.pack(side=tk.LEFT)
-        
-        self.master.configure(bg = jhblue)
+        self.extension_label.pack(side=tk.BOTTOM, padx = 2, pady = 2)
+        self.extension_entry.pack(side=tk.BOTTOM, padx = 2, pady = 2)
 
 #Frame for new training class claim creation
 class TrainingClass(ttk.Frame):
@@ -33,23 +31,22 @@ class TrainingClass(ttk.Frame):
         super().__init__(master)
         self.label = ttk.Label(self, text = "Training Class")
         self.label.pack()
-        self.master.configure(bg = jhblue)
 
 #Frame for new FI claim creation
 class NewFI(ttk.Frame):
     def __init__(self, master=None):
+        
         super().__init__(master)
         self.label = ttk.Label(self, text = "NewFI")
         self.label.pack()
-        self.master.configure(bg = jhblue)
 
 #Main Window
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-
         self.title("jhCC IMS Claim Creator")
 
+        
         style = ttk.Style()                     # Creating style element
         style.configure('Option.TCombobox',    # First argument is the name of style. Needs to end with: .TCombobox
             background = jhblue,         # Setting background to our specified color above
@@ -59,9 +56,11 @@ class App(tk.Tk):
             background = jhblue,
             foreground = 'grey')
         
-        style.configure('Header.TLabel', background = jhblue, foreground = 'white')
-
-
+        #style.configure('Header.TLabel', background = jhblue, foreground = 'white')
+        
+        style.configure('TEntry', fieldbackground = jhblue)
+        
+        self.configure(background = jhblue)
 
         self.title_label = ttk.Label(self, style = 'Header.TLabel', text = "jhCC IMS Claim Creator", font = header_f)
 
@@ -79,7 +78,7 @@ class App(tk.Tk):
 
     def switch_frame(self, event=None):  # event argument is needed for bind
         frame = self.var.get()
-        
+
         if frame == "Single Agent":
             self.frame2.pack_forget()
             self.frame3.pack_forget()

@@ -1,0 +1,11 @@
+[
+    {
+        "userName": "cbrichardson@citjha.com",
+        "appliesTo": "http://jackhenry.com/application/core",
+        "default": false,
+        "description": "State Bank",
+        "routingId": "1",
+        "name": "U52JHACC",
+        "context": "iAdapter=ATXSLP14;"
+    }
+]

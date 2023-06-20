@@ -125,7 +125,7 @@ try:
         # insert row into table
         cur.execute("INSERT INTO banks VALUES (NULL, ?, ?, ?, ?, ?)", (values[0], values[1], values[2], values[3], values[4]))
     db.commit()
-    print(f"Loaded {bankcount} Banks and {cucount} from Current FI Servicing Smartsheet")
+    print(f"Loaded {bankcount} Banks and {cucount} CU's from Current FI Servicing Smartsheet")
 except:
     #show_warning()
     pass
@@ -162,15 +162,15 @@ class MainWindow(QtWidgets.QMainWindow):
         self.main_widget = QtWidgets.QWidget(self)
         self.layout = QtWidgets.QVBoxLayout(self.main_widget)
     
-        self.dropdown = QtWidgets.QComboBox()
-        self.dropdown.addItem('Please select an option')
-        self.dropdown.addItems(['Single Agent', 'New Hire Class', 'New FI'])
-        self.dropdown.currentIndexChanged.connect(self.initial_update_ui)
-        self.dropdown.setStyleSheet(entry_style)
-        self.layout.addWidget(self.dropdown)
+        self.init_dropdown = QtWidgets.QComboBox()
+        self.init_dropdown.addItem('Please select an option')
+        self.init_dropdown.addItems(['Single Agent', 'New Hire Class', 'New FI'])
+        self.init_dropdown.currentIndexChanged.connect(self.initial_update_ui)
+        self.init_dropdown.setStyleSheet(entry_style)
+        self.layout.addWidget(self.init_dropdown)
     
         # Set 'Please select an option' as non-selectable and non-editable
-        self.dropdown.model().item(0).setEnabled(False)
+        self.init_dropdown.model().item(0).setEnabled(False)
 
         self.stack = QtWidgets.QStackedWidget(self)
         self.layout.addWidget(self.stack)
@@ -186,10 +186,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.agent_extension_label = QtWidgets.QLabel('Agent Extension')
         self.agent_extension_entry = QtWidgets.QLineEdit()
         self.agent_extension_entry.setStyleSheet(entry_style)
-        self.email_button = QtWidgets.QPushButton('Check Email')
-        self.email_button.clicked.connect(self.check_email)
-        self.extension_button = QtWidgets.QPushButton('Check Extension')
-        self.extension_button.clicked.connect(self.check_extension)
+        self.email_button = QtWidgets.QPushButton('Get Email')
+        self.email_button.clicked.connect(self.get_email)
+        self.extension_button = QtWidgets.QPushButton('Get Extension')
+        self.extension_button.clicked.connect(self.get_extension)
         self.opt1_layout.addWidget(self.agent_email_label)
         self.opt1_layout.addWidget(self.agent_email_entry)
         self.opt1_layout.addWidget(self.email_button)
@@ -199,18 +199,18 @@ class MainWindow(QtWidgets.QMainWindow):
         
 
         
-        self.checkbox1 = QtWidgets.QCheckBox('Single Bank Core Claim')
-        self.checkbox2 = QtWidgets.QCheckBox('Single Synapsys')
-        self.checkbox3 = QtWidgets.QCheckBox('All Bank Core Claim')
-        self.checkbox4 = QtWidgets.QCheckBox('All Bank Synapsys Claim')
-        self.checkbox5 = QtWidgets.QCheckBox('All CU Synapsys Claim')
-        self.checkbox6 = QtWidgets.QCheckBox('Trainer Claim')
-        self.opt1_layout.addWidget(self.checkbox1)
-        self.opt1_layout.addWidget(self.checkbox2)
-        self.opt1_layout.addWidget(self.checkbox3)
-        self.opt1_layout.addWidget(self.checkbox4)
-        self.opt1_layout.addWidget(self.checkbox5)
-        self.opt1_layout.addWidget(self.checkbox6)
+        self.checkbox1_1 = QtWidgets.QCheckBox('Single Bank Core Claim')
+        self.checkbox1_2 = QtWidgets.QCheckBox('Single Synapsys')
+        self.checkbox1_3 = QtWidgets.QCheckBox('All Bank Core Claim')
+        self.checkbox1_4 = QtWidgets.QCheckBox('All Bank Synapsys Claim')
+        self.checkbox1_5 = QtWidgets.QCheckBox('All CU Synapsys Claim')
+        self.checkbox1_6 = QtWidgets.QCheckBox('Trainer Claim')
+        self.opt1_layout.addWidget(self.checkbox1_1)
+        self.opt1_layout.addWidget(self.checkbox1_2)
+        self.opt1_layout.addWidget(self.checkbox1_3)
+        self.opt1_layout.addWidget(self.checkbox1_4)
+        self.opt1_layout.addWidget(self.checkbox1_5)
+        self.opt1_layout.addWidget(self.checkbox1_6)
         self.clear = QtWidgets.QPushButton('Clear')
         self.opt1_layout.addWidget(self.clear)
         self.clear.clicked.connect(self.clear_options)
@@ -219,14 +219,17 @@ class MainWindow(QtWidgets.QMainWindow):
         self.opt2_widget = QtWidgets.QWidget()
         self.opt2_layout = QtWidgets.QVBoxLayout(self.opt2_widget)
         self.stack.addWidget(self.opt2_widget)
+        
 
         self.import_button = QtWidgets.QPushButton('Import CSV')
         self.import_button.clicked.connect(self.import_csv)
         self.opt2_layout.addWidget(self.import_button)
 
-        self.checkboxes2 = [QtWidgets.QCheckBox(f'Checkbox {i+1}') for i in range(3)]
-        for cb in self.checkboxes2:
-            self.opt2_layout.addWidget(cb)
+        self.new_hire_dropdown = QtWidgets.QComboBox()
+        self.new_hire_dropdown.addItems(['Banking', 'Credit Unions'])
+        self.new_hire_dropdown.setStyleSheet(entry_style)
+        #self.init_dropdown.currentIndexChanged.connect(self.initial_update_ui)
+        self.opt2_layout.addWidget(self.new_hire_dropdown)
 
         # New FI widgets
         self.opt3_widget = QtWidgets.QWidget()
@@ -262,15 +265,15 @@ class MainWindow(QtWidgets.QMainWindow):
         if index == 0: 
             return
         # disconnect initial signal
-        self.dropdown.currentIndexChanged.disconnect(self.initial_update_ui)
+        self.init_dropdown.currentIndexChanged.disconnect(self.initial_update_ui)
         # remove 'Please select an option'
-        self.dropdown.removeItem(0)
+        self.init_dropdown.removeItem(0)
         # reconnect signal to regular update_ui
-        self.dropdown.currentIndexChanged.connect(self.update_ui)
+        self.init_dropdown.currentIndexChanged.connect(self.update_ui)
         # call update_ui for initial selection
-        self.update_ui(self.dropdown.currentIndex())
+        self.update_ui(self.init_dropdown.currentIndex())
 
-    
+    #updates our UI depending on the option selected
     def update_ui(self, index):
         self.stack.setCurrentIndex(index)
         self.stack.show()
@@ -278,11 +281,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self.process_button.show()
         self.remove_button.show()
 
+    #Remove 'Please select an option' if it is still there
     def remove_placeholder(self):
-    # Remove 'Please select an option' if it is still there
-        if self.dropdown.itemText(0) == 'Please select an option':
-            self.dropdown.removeItem(0)
+    
+        if self.init_dropdown.itemText(0) == 'Please select an option':
+            self.init_dropdown.removeItem(0)
 
+    #Import CSV function
     def import_csv(self):
         filename, _ = QtWidgets.QFileDialog.getOpenFileName(self, 'Import CSV', QtCore.QDir.currentPath(), 'CSV Files (*.csv)')
         if filename:
@@ -290,31 +295,46 @@ class MainWindow(QtWidgets.QMainWindow):
                 reader = csv.reader(f)
                 print(list(reader))
 
-    def update_ui(self, index):
-        if index >= 0:
-            self.stack.setCurrentIndex(index)
-            self.stack.show()
-            self.queue.show()
-            self.process_button.show()
-            self.remove_button.show()
+    #think this is old
+    #def update_ui(self, index):
+    #    if index >= 0:
+    #        self.stack.setCurrentIndex(index)
+    #        self.stack.show()
+    #        self.queue.show()
+    #        self.process_button.show()
+    #        self.remove_button.show()
     
-    def check_email(self):
-        showDialog()
+    #check email is valid
+    def get_email(self):
+        found = False
+        for row in agent_list_sheet.rows:
+            citjha_email = row.cells[citjha_email_col_index].value
+            citjha_email = str(citjha_email)
+            if citjha_email.lower() == email_entry.get():
+                found = True
+                extension = row.cells[extension_col_index].value
+                extension = int(extension)
+                extension_entry.delete(0,END)
+                extension_entry.insert(0, extension)
+                break
+        if not found:
+                messagebox.showerror('Smartsheet Lookup Error', f'No extension found for the email address {email_text.get()} on the Agent List Smartsheet!')
+                return
         pass
     
-    def check_extension(self):
+    def get_extension(self):
         pass
     
     def clear_options(self):
         
         
         
-        self.checkbox1.setChecked(False)
-        self.checkbox2.setChecked(False)
-        self.checkbox3.setChecked(False)
-        self.checkbox4.setChecked(False)
-        self.checkbox5.setChecked(False)
-        self.checkbox6.setChecked(False)
+        self.checkbox1_1.setChecked(False)
+        self.checkbox1_2.setChecked(False)
+        self.checkbox1_3.setChecked(False)
+        self.checkbox1_4.setChecked(False)
+        self.checkbox1_5.setChecked(False)
+        self.checkbox1_6.setChecked(False)
         self.agent_email_entry.clear()
         self.agent_extension_entry.clear()
         self.clear.setText('Undo')

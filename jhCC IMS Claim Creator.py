@@ -2,7 +2,151 @@ import sys
 import csv
 from PyQt5 import QtWidgets, QtCore, QtGui
 from PyQt5.QtGui import QIcon
-from PyQt5.QtWidgets import QApplication
+from PyQt5.QtWidgets import QApplication, QMessageBox 
+import json
+import os
+import sqlite3
+from smartsheet import Smartsheet
+from smartsheet import sheets
+
+#get the FI Servicing Sheets and Script sheets with Core user, partition and synapsys numbers and uses the API Token for the jhCC Support Smartsheet User.
+os.environ['SMARTSHEET_ACCESS_TOKEN'] = '8RfGAA0rhPQr6K6P6hBNsEHBESXiyZpCN5wkd'
+fi_servicing_sheet_ID = 494759136520068 # name: Current FI Servicing
+agent_list_sheet_ID = 735036543657860 # name: Agent List
+bank_core_sheet_ID = 7891957159618436 # name: IMS PROGRAM 1 Agent : Banking FI Cores
+bank_synapsys_sheet_ID = 8999703313442692 #name: IMS PROGRAM 1 Agent : Banking Synapsys
+cu_synapsys_sheet_ID = 846684570838916 # name: IMS PROGRAM 1 Agent : CU Synapsys
+trainer_fi_sheet_ID = 2405415385360260 # name: IMS PROGRAM Trainer Script Synapsys
+
+# create db in memory Connection and Cursor objects
+db = sqlite3.connect(':memory:')
+cur = db.cursor()
+
+# Initialize Smartsheet client
+smart = Smartsheet()
+smart.errors_as_exceptions(True)
+
+# retrieve sheet with specified ID from variables above
+fi_sheet = smart.Sheets.get_sheet(fi_servicing_sheet_ID)
+bank_synapsys_sheet = smart.Sheets.get_sheet(bank_synapsys_sheet_ID)
+bank_core_sheet = smart.Sheets.get_sheet(bank_core_sheet_ID)
+cu_synapsys_sheet = smart.Sheets.get_sheet(cu_synapsys_sheet_ID)
+agent_list_sheet = smart.Sheets.get_sheet(agent_list_sheet_ID)
+trainer_fi_sheet = smart.Sheets.get_sheet(trainer_fi_sheet_ID)
+
+def showDialog(event = None):
+
+    msgBox = QMessageBox()
+    msgBox.setIcon(QMessageBox.Warning)
+    msgBox.setText("This is a warning message!")
+    msgBox.setWindowTitle("Warning")
+    msgBox.setStandardButtons(QMessageBox.Ok | QMessageBox.Cancel)
+    returnValue = msgBox.exec()
+
+    if returnValue == QMessageBox.Ok:
+            print('OK clicked')
+
+#create column map for relevant columns to use for bank sql import
+column_indices = {col.title: i for i, col in enumerate(fi_sheet.columns)}
+
+#return the core user and partition information from the corresponding smartsheet for the bank name input
+def get_bank_core_data(fi_name):
+    column_indices = {col.title: i for i, col in enumerate(bank_core_sheet.columns)}
+    for row in bank_core_sheet.rows:
+        if row.cells[column_indices['Bank Name']].value == fi_name:
+            return row.cells[column_indices['FI Core']].value, row.cells[column_indices['Bank ID']].value
+    return None, None
+
+# create bank list table in database
+cur.execute("CREATE TABLE banks (ID INTEGER PRIMARY KEY, fi_name TEXT, fi_syn TEXT, fi_type TEXT, bank_core TEXT, partition TEXT)")
+db.commit()
+
+#iterate through both synapsys script sheets and return the synapsys bank number from the corresponding smartsheet for the FI name input
+def get_synapsys_data(fi_name, fi_type):
+    if fi_type == 'Bank':
+        sheet = bank_synapsys_sheet
+    elif fi_type == 'CU':
+        sheet = cu_synapsys_sheet
+    else:
+        return None
+    column_indices = {col.title: i for i, col in enumerate(sheet.columns)}
+    for row in sheet.rows:
+        if row.cells[column_indices['Bank Name']].value == fi_name:
+            return row.cells[column_indices['Bank ID']].value
+    return None
+
+# insert bank data in to SQL table in memory from Current FI Servicing Smartsheet
+try:
+    seen_fi_names = set()  # set to store seen fi_name values
+    #set variables to store the number of banks and CU's loaded from sheet
+    bankcount = 0
+    cucount = 0
+    for row in fi_sheet.rows:
+        # extract values of relevant columns
+        values = [row.cells[column_indices[col]].value for col in ('FI Name', 'Synapsys Bank Number', 'FI Type', 'Status', 'Logo')]
+        # skip row if fi_name value is blank
+        if not values[0]:
+            continue
+        #skip row if logo is blank
+        if not values[4]:
+            continue
+        # skip row if Status value is not 'Active'
+        if not values[3] == 'Active':
+            continue
+        # set bank_core and partition values based on FI Type
+        if values[2] == 'Bank':
+            bank_core, partition = get_bank_core_data(values[0])
+            values[3] = bank_core
+            values[4] = partition
+        elif values[2] == 'CU':
+            values[3] = ''
+            values[4] = ''
+        else:
+            continue
+        # get synapsys data
+        values[1] = get_synapsys_data(values[0], values[2])
+        # check if values[1] is a float and convert it to an integer if it is
+        if isinstance(values[1], float):
+            values[1] = int(values[1])
+        #if no info for synapsys bank number AND bank core and partition skip row
+        if (values[1] == 'None' and values[3] == 'None' and values[4] == 'None'):
+            continue
+        # skip row if fi_name value has been seen before
+        if values[0] in seen_fi_names:
+            continue
+        # add fi_name value to seen set so we dont duplicate bank names
+        seen_fi_names.add(values[0])
+        if values[2] == 'CU':
+            cucount += 1
+            print(f'Loaded {values[0]} with Synapsys Bank Number of {values[1]}')
+        if values[2] =='Bank':
+            bankcount += 1
+            print(f'Loaded {values[0]} with Synapsys Bank Number of {values[1]}, Core User of {values[3]} and Partition of {values[4]}')
+        # insert row into table
+        cur.execute("INSERT INTO banks VALUES (NULL, ?, ?, ?, ?, ?)", (values[0], values[1], values[2], values[3], values[4]))
+    db.commit()
+    print(f"Loaded {bankcount} Banks and {cucount} from Current FI Servicing Smartsheet")
+except:
+    #show_warning()
+    pass
+
+# Create column indexes for claim functions used
+agent_name_col = next(col for col in agent_list_sheet.columns if col.title == 'Agent Name')
+extension_col = next(col for col in agent_list_sheet.columns if col.title == 'Extension')
+skill_col = next(col for col in agent_list_sheet.columns if col.title == 'Skill')
+citjha_email_col = next(col for col in agent_list_sheet.columns if col.title == 'CITJHA Domain')
+trainer_banks_col = next(col for col in trainer_fi_sheet.columns if col.title == 'Bank Name')
+agent_name_col_index = agent_name_col.index
+skill_col_index = skill_col.index
+extension_col_index = extension_col.index
+citjha_email_col_index = citjha_email_col.index
+trainer_banks_col_index = trainer_banks_col.index
+
+# Find the row index where the "Agent Name" column starts after "Supervisor" dropdown
+total_current_agent_row = next(row for row in agent_list_sheet.rows if row.cells[agent_name_col_index].value == 'Supervisors')
+total_current_agent_row_index = total_current_agent_row.row_number
+start_row_index = total_current_agent_row_index
+
 
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
@@ -155,6 +299,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.remove_button.show()
     
     def check_email(self):
+        showDialog()
         pass
     
     def check_extension(self):

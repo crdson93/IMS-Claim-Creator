@@ -1,108 +1,197 @@
-import tkinter as tk
-import tkinter.ttk as ttk
+import sys
+import csv
+from PyQt5 import QtWidgets, QtCore, QtGui
+from PyQt5.QtGui import QIcon
+from PyQt5.QtWidgets import QApplication
 
-# - Function to translate an rgb tuple of int to a tkinter friendly color code - #
-def _from_rgb(rgb):
-    return '#%02x%02x%02x' % rgb  
-
-jhblue = _from_rgb((26, 54, 104))
-header_f = ("Poppins", 16, "bold")  
-body_f = ("Poppins", 12)
-
-#Frame for single agent claim creation
-class SingleAgent(ttk.Frame):
-    def __init__(self, master):
-        super().__init__(master)
-        
-        self.name_label = ttk.Label(self, text = "Agent Name ", font = body_f, style = 'Header.TLabel')
-        self.name_entry = tk.Entry(self, font = body_f)
-        
-        self.extension_label = ttk.Label(self, text = "Agent Extension ", font = body_f, style = 'Header.TLabel')
-        self.extension_entry = tk.Entry(self, font = body_f)
-        
-        self.name_label.pack(side=tk.LEFT)
-        self.name_entry.pack(side=tk.LEFT)
-        self.extension_label.pack(side=tk.BOTTOM, padx = 2, pady = 2)
-        self.extension_entry.pack(side=tk.BOTTOM, padx = 2, pady = 2)
-
-#Frame for new training class claim creation
-class TrainingClass(ttk.Frame):
-    def __init__(self, master=None):
-        super().__init__(master)
-        self.label = ttk.Label(self, text = "Training Class")
-        self.label.pack()
-
-#Frame for new FI claim creation
-class NewFI(ttk.Frame):
-    def __init__(self, master=None):
-        
-        super().__init__(master)
-        self.label = ttk.Label(self, text = "NewFI")
-        self.label.pack()
-
-#Main Window
-class App(tk.Tk):
+class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
-        super().__init__()
-        self.title("jhCC IMS Claim Creator")
+        super(MainWindow, self).__init__()
+        self.setWindowTitle('jhCC IMS Claim Creator')
+        self.setWindowIcon(QIcon('C:\\Users\\cbrichardson\\OneDrive - Jack Henry & Associates\\Documents\\GitHub\\Testing Scripts\\PyQT\\jh.ico'))
+        
+        main_style = "background-color: #1a3668; color: white; font-family: 'Poppins'; font-size: 16px"
+        button_style = "background-color: #1a3668; color: white; font-family: 'Poppins';"
+        entry_style = "background-color: white; color: black; font-family: 'Poppins';"
+        self.setStyleSheet(main_style)
+    
+        self.main_widget = QtWidgets.QWidget(self)
+        self.layout = QtWidgets.QVBoxLayout(self.main_widget)
+    
+        self.dropdown = QtWidgets.QComboBox()
+        self.dropdown.addItem('Please select an option')
+        self.dropdown.addItems(['Single Agent', 'New Hire Class', 'New FI'])
+        self.dropdown.currentIndexChanged.connect(self.initial_update_ui)
+        self.dropdown.setStyleSheet(entry_style)
+        self.layout.addWidget(self.dropdown)
+    
+        # Set 'Please select an option' as non-selectable and non-editable
+        self.dropdown.model().item(0).setEnabled(False)
+
+        self.stack = QtWidgets.QStackedWidget(self)
+        self.layout.addWidget(self.stack)
+
+        # Single Agent widgets
+        self.opt1_widget = QtWidgets.QWidget()
+        self.opt1_layout = QtWidgets.QVBoxLayout(self.opt1_widget)
+        self.stack.addWidget(self.opt1_widget)
+
+        self.agent_email_label = QtWidgets.QLabel('Agent Email')
+        self.agent_email_entry = QtWidgets.QLineEdit()
+        self.agent_email_entry.setStyleSheet(entry_style)
+        self.agent_extension_label = QtWidgets.QLabel('Agent Extension')
+        self.agent_extension_entry = QtWidgets.QLineEdit()
+        self.agent_extension_entry.setStyleSheet(entry_style)
+        self.email_button = QtWidgets.QPushButton('Check Email')
+        self.email_button.clicked.connect(self.check_email)
+        self.extension_button = QtWidgets.QPushButton('Check Extension')
+        self.extension_button.clicked.connect(self.check_extension)
+        self.opt1_layout.addWidget(self.agent_email_label)
+        self.opt1_layout.addWidget(self.agent_email_entry)
+        self.opt1_layout.addWidget(self.email_button)
+        self.opt1_layout.addWidget(self.agent_extension_label)
+        self.opt1_layout.addWidget(self.agent_extension_entry)
+        self.opt1_layout.addWidget(self.extension_button)
+        
 
         
-        style = ttk.Style()                     # Creating style element
-        style.configure('Option.TCombobox',    # First argument is the name of style. Needs to end with: .TCombobox
-            background = jhblue,         # Setting background to our specified color above
-            foreground = 'black')         # You can define colors like this also
-        
-        style.configure('Default.TCombobox',
-            background = jhblue,
-            foreground = 'grey')
-        
-        #style.configure('Header.TLabel', background = jhblue, foreground = 'white')
-        
-        style.configure('TEntry', fieldbackground = jhblue)
-        
-        self.configure(background = jhblue)
+        self.checkbox1 = QtWidgets.QCheckBox('Single Bank Core Claim')
+        self.checkbox2 = QtWidgets.QCheckBox('Single Synapsys')
+        self.checkbox3 = QtWidgets.QCheckBox('All Bank Core Claim')
+        self.checkbox4 = QtWidgets.QCheckBox('All Bank Synapsys Claim')
+        self.checkbox5 = QtWidgets.QCheckBox('All CU Synapsys Claim')
+        self.checkbox6 = QtWidgets.QCheckBox('Trainer Claim')
+        self.opt1_layout.addWidget(self.checkbox1)
+        self.opt1_layout.addWidget(self.checkbox2)
+        self.opt1_layout.addWidget(self.checkbox3)
+        self.opt1_layout.addWidget(self.checkbox4)
+        self.opt1_layout.addWidget(self.checkbox5)
+        self.opt1_layout.addWidget(self.checkbox6)
+        self.clear = QtWidgets.QPushButton('Clear')
+        self.opt1_layout.addWidget(self.clear)
+        self.clear.clicked.connect(self.clear_options)
 
-        self.title_label = ttk.Label(self, style = 'Header.TLabel', text = "jhCC IMS Claim Creator", font = header_f)
+        # New Hire Class widgets
+        self.opt2_widget = QtWidgets.QWidget()
+        self.opt2_layout = QtWidgets.QVBoxLayout(self.opt2_widget)
+        self.stack.addWidget(self.opt2_widget)
 
-        self.frame1 = SingleAgent(self)
-        self.frame2 = TrainingClass(self)
-        self.frame3 = NewFI(self)
-        self.var = tk.StringVar()
+        self.import_button = QtWidgets.QPushButton('Import CSV')
+        self.import_button.clicked.connect(self.import_csv)
+        self.opt2_layout.addWidget(self.import_button)
+
+        self.checkboxes2 = [QtWidgets.QCheckBox(f'Checkbox {i+1}') for i in range(3)]
+        for cb in self.checkboxes2:
+            self.opt2_layout.addWidget(cb)
+
+        # New FI widgets
+        self.opt3_widget = QtWidgets.QWidget()
+        self.opt3_layout = QtWidgets.QVBoxLayout(self.opt3_widget)
+        self.stack.addWidget(self.opt3_widget)
+
+        self.checkboxes3 = [QtWidgets.QCheckBox(f'Checkbox {i+1}') for i in range(3)]
+        for cb in self.checkboxes3:
+            self.opt3_layout.addWidget(cb)
+
+        # Output queue
+        self.queue = QtWidgets.QListWidget()
+        self.layout.addWidget(self.queue)
+        self.queue.setStyleSheet(entry_style)
+
+        # Buttons for processing and removing queue entries
+        self.process_button = QtWidgets.QPushButton('Process Queue')
+        self.process_button.clicked.connect(self.process_queue)
+        self.remove_button = QtWidgets.QPushButton('Remove Entry')
+        self.remove_button.clicked.connect(self.remove_entry)
+        self.layout.addWidget(self.process_button)
+        self.layout.addWidget(self.remove_button)
+
+        self.setCentralWidget(self.main_widget)
+
+        # Hide stack and process queue initially
+        self.stack.hide()
+        self.queue.hide()
+        self.process_button.hide()
+        self.remove_button.hide()
+
+    def initial_update_ui(self, index):
+        if index == 0: 
+            return
+        # disconnect initial signal
+        self.dropdown.currentIndexChanged.disconnect(self.initial_update_ui)
+        # remove 'Please select an option'
+        self.dropdown.removeItem(0)
+        # reconnect signal to regular update_ui
+        self.dropdown.currentIndexChanged.connect(self.update_ui)
+        # call update_ui for initial selection
+        self.update_ui(self.dropdown.currentIndex())
+
+    
+    def update_ui(self, index):
+        self.stack.setCurrentIndex(index)
+        self.stack.show()
+        self.queue.show()
+        self.process_button.show()
+        self.remove_button.show()
+
+    def remove_placeholder(self):
+    # Remove 'Please select an option' if it is still there
+        if self.dropdown.itemText(0) == 'Please select an option':
+            self.dropdown.removeItem(0)
+
+    def import_csv(self):
+        filename, _ = QtWidgets.QFileDialog.getOpenFileName(self, 'Import CSV', QtCore.QDir.currentPath(), 'CSV Files (*.csv)')
+        if filename:
+            with open(filename, 'r') as f:
+                reader = csv.reader(f)
+                print(list(reader))
+
+    def update_ui(self, index):
+        if index >= 0:
+            self.stack.setCurrentIndex(index)
+            self.stack.show()
+            self.queue.show()
+            self.process_button.show()
+            self.remove_button.show()
+    
+    def check_email(self):
+        pass
+    
+    def check_extension(self):
+        pass
+    
+    def clear_options(self):
         
-        self.dropdown = ttk.Combobox(self, textvariable=self.var, style='Default.TCombobox', values=["Single Agent", "Training Class", "New FI"], font = body_f)
-        self.dropdown.set("Please select an option")  # Set the default text here
-        self.dropdown.bind("<<ComboboxSelected>>", self.switch_frame)
         
-        self.title_label.pack(pady = 6, padx = 6)
-        self.dropdown.pack(pady = 6)
-
-    def switch_frame(self, event=None):  # event argument is needed for bind
-        frame = self.var.get()
-
-        if frame == "Single Agent":
-            self.frame2.pack_forget()
-            self.frame3.pack_forget()
-            self.frame1.pack()
-            self.geometry('300x200')
-            self.dropdown.configure(style='Option.TCombobox')
-        elif frame == "Training Class":
-            self.frame1.pack_forget()
-            self.frame3.pack_forget()
-            self.frame2.pack()
-            self.geometry('400x200')
-            self.dropdown.configure(style='Option.TCombobox')
-        elif frame == "New FI":
-            self.frame1.pack_forget()
-            self.frame2.pack_forget()
-            self.frame3.pack()
-            self.geometry('500x200')
-            self.dropdown.configure(style='Option.TCombobox')
-        else:
-            print("Please select a valid option.")
-            self.dropdown.set("Please select an option")
-            self.dropdown.configure(style='Default.TCombobox')
         
+        self.checkbox1.setChecked(False)
+        self.checkbox2.setChecked(False)
+        self.checkbox3.setChecked(False)
+        self.checkbox4.setChecked(False)
+        self.checkbox5.setChecked(False)
+        self.checkbox6.setChecked(False)
+        self.agent_email_entry.clear()
+        self.agent_extension_entry.clear()
+        self.clear.setText('Undo')
+        #QApplication.processEvents()
+        pass
+    
+    def process_queue(self):
+        # Add your code to process queue here
+        print("Claims processed")
+        pass
 
-if __name__ == "__main__":
-    app = App()
-    app.mainloop()
+    def remove_entry(self):
+        # Add your code to remove queue entry here
+        print("Selected item removed")
+        pass
+    
+    
+
+
+if __name__ == '__main__':
+    app = QtWidgets.QApplication(sys.argv)
+    app.setStyle('Fusion')
+    win = MainWindow()
+    win.show()
+    sys.exit(app.exec())

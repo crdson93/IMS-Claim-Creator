@@ -34,17 +34,17 @@ cu_synapsys_sheet = smart.Sheets.get_sheet(cu_synapsys_sheet_ID)
 agent_list_sheet = smart.Sheets.get_sheet(agent_list_sheet_ID)
 trainer_fi_sheet = smart.Sheets.get_sheet(trainer_fi_sheet_ID)
 
-def showDialog(event = None):
+def showWarning(title, body, event = None):
 
     msgBox = QMessageBox()
     msgBox.setIcon(QMessageBox.Warning)
-    msgBox.setText("This is a warning message!")
-    msgBox.setWindowTitle("Warning")
+    msgBox.setText(body)
+    msgBox.setWindowTitle(title)
     msgBox.setStandardButtons(QMessageBox.Ok | QMessageBox.Cancel)
     returnValue = msgBox.exec()
 
     if returnValue == QMessageBox.Ok:
-            print('OK clicked')
+            print('Warning message OK clicked')
 
 #create column map for relevant columns to use for bank sql import
 column_indices = {col.title: i for i, col in enumerate(fi_sheet.columns)}
@@ -192,10 +192,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.extension_button.clicked.connect(self.get_extension)
         self.opt1_layout.addWidget(self.agent_email_label)
         self.opt1_layout.addWidget(self.agent_email_entry)
-        self.opt1_layout.addWidget(self.email_button)
+        self.opt1_layout.addWidget(self.extension_button)
         self.opt1_layout.addWidget(self.agent_extension_label)
         self.opt1_layout.addWidget(self.agent_extension_entry)
-        self.opt1_layout.addWidget(self.extension_button)
+        self.opt1_layout.addWidget(self.email_button)
         
 
         
@@ -213,7 +213,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.opt1_layout.addWidget(self.checkbox1_6)
         self.clear = QtWidgets.QPushButton('Clear')
         self.opt1_layout.addWidget(self.clear)
-        self.clear.clicked.connect(self.clear_options)
+        
 
         # New Hire Class widgets
         self.opt2_widget = QtWidgets.QWidget()
@@ -260,6 +260,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.queue.hide()
         self.process_button.hide()
         self.remove_button.hide()
+        
+        self.clear.clicked.connect(lambda: ClearUndo()(self))
+
 
     def initial_update_ui(self, index):
         if index == 0: 
@@ -304,56 +307,143 @@ class MainWindow(QtWidgets.QMainWindow):
     #        self.process_button.show()
     #        self.remove_button.show()
     
-    #check email is valid
-    def get_email(self):
+    #look up the email in the email field and get the corresponding extension from the Agent List Smartsheet
+    def get_extension(self):
         found = False
+        email = self.agent_email_entry.text()
+        extension_entry = self.agent_extension_entry
         for row in agent_list_sheet.rows:
             citjha_email = row.cells[citjha_email_col_index].value
             citjha_email = str(citjha_email)
-            if citjha_email.lower() == email_entry.get():
+            if citjha_email.lower() == email:
                 found = True
                 extension = row.cells[extension_col_index].value
-                extension = int(extension)
-                extension_entry.delete(0,END)
-                extension_entry.insert(0, extension)
+                extension = str(extension)
+                extension = extension[:-2]
+                print(extension)
+                extension_entry.setText(extension)
                 break
         if not found:
-                messagebox.showerror('Smartsheet Lookup Error', f'No extension found for the email address {email_text.get()} on the Agent List Smartsheet!')
+                showWarning("Smartsheet Data Lookup Error", f"No extension found for the email {email}")
                 return
-        pass
     
-    def get_extension(self):
-        pass
+    #look up the extension in the extension field and get the corresponding email from the Agent List Smartsheet
+    def get_email(self):
+        found = False
+        extension_entry = self.agent_extension_entry
+        email_entry = self.agent_email_entry
+        for row in agent_list_sheet.rows:
+            extension = row.cells[extension_col_index].value
+            if extension_entry.text() == '':
+                showWarning('Data Input Error', f'Please enter an extension!')
+                return
+            elif extension == int(extension_entry.text()):
+                found = True
+                citjha_email = row.cells[citjha_email_col_index].value
+                citjha_email = str(citjha_email.lower())
+                email_entry.setText(citjha_email)
+                break
+        if not found:
+            showWarning('Smartsheet Lookup Error', f'No email address found for the extension {extension_entry.text()} on the Agent List Smartsheet!')
     
-    def clear_options(self):
+    #Clear our fields out, save them to local variables for the undo function if we need to restore that data
+    def clear_undo(self):
         
-        
-        
+        self.agent_email_entry.clear()
+        self.agent_extension_entry.clear()
         self.checkbox1_1.setChecked(False)
         self.checkbox1_2.setChecked(False)
         self.checkbox1_3.setChecked(False)
         self.checkbox1_4.setChecked(False)
         self.checkbox1_5.setChecked(False)
         self.checkbox1_6.setChecked(False)
-        self.agent_email_entry.clear()
-        self.agent_extension_entry.clear()
+        
         self.clear.setText('Undo')
         #QApplication.processEvents()
         pass
     
+    #This function will be to process the claims we have in the queue to one .json file
     def process_queue(self):
         # Add your code to process queue here
         print("Claims processed")
         pass
 
+    #This function will be to remove the selected claim(s) from the processing queue
     def remove_entry(self):
         # Add your code to remove queue entry here
         print("Selected item removed")
         pass
     
     
+    
+class ClearUndo():
+    # Use a class variable to keep track of how many times instance has been run
+    _instance_count = 0
+
+    def __init__(self):
+        # Initialize the class attributes to None
+        self.customernamecopy = None
+        self.reasoncopy = None
+        self.referencecopy = None
+        self.contactinfocopy = None
+        self.debitcardcopy = None
+        self.transactionscopy = None
+        
+        # Set self.clear based on the value of the _first_run flag
+        ClearUndo._instance_count += 1
+
+        if ClearUndo._instance_count % 2 == 1:
+            self.clear = True
+        else:
+            self.clear = False
+            
+        self.clear_undo()
+    
+    def clear_undo(self):
+        
+        if self.clear == True:
+            # Assign values to the class attributes
+            ClearUndo.agent_email_copy = MainWindow.agent_email_entry.text()
+            ClearUndo.agent_extension_copy = MainWindow.agent_extension_entry.text()
+            ClearUndo.checkbox1_1_copy = MainWindow.checkbox1_1.isChecked()
+            ClearUndo.checkbox1_2_copy = MainWindow.checkbox1_2.isChecked()
+            ClearUndo.checkbox1_3_copy = MainWindow.checkbox1_3.isChecked()
+            ClearUndo.checkbox1_4_copy = MainWindow.checkbox1_4.isChecked()
+            ClearUndo.checkbox1_5_copy = MainWindow.checkbox1_5.isChecked()
+            ClearUndo.checkbox1_6_copy = MainWindow.checkbox1_6.isChecked()
+
+            def clear_fields():
+                MainWindow.agent_email_entry.clear()
+                MainWindow.agent_extension_entry.clear()
+                MainWindow.checkbox1_1.setChecked(False)
+                MainWindow.checkbox1_2.setChecked(False)
+                MainWindow.checkbox1_3.setChecked(False)
+                MainWindow.checkbox1_4.setChecked(False)
+                MainWindow.checkbox1_5.setChecked(False)
+                MainWindow.checkbox1_6.setChecked(False)
+                return
+
+            clear_fields()
+            self.clear = False
+            MainWindow.clear.setText('Undo')
+            return
+
+        if self.clear == False:
+            MainWindow.clear.setText('Undo')
+            # Use the class attributes in the second if statement
+            MainWindow.agent_email_entry.setText(ClearUndo.agent_email_copy)
+            MainWindow.agent_extension_entry.setText(ClearUndo.agent_extension_copy)
+            for i in range[1, 6]:
+                checkbox_copy = getattr(ClearUndo, f"checkbox1_{i}_copy")
+                if checkbox_copy:
+                    MainWindow.checkbox1_[i].setChecked(True)
+                else:
+                    MainWindow.checkbox1_[i].setChecked(False)
+            self.clear = True
+            return
 
 
+#Main loop
 if __name__ == '__main__':
     app = QtWidgets.QApplication(sys.argv)
     app.setStyle('Fusion')

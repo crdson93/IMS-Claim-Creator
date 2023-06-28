@@ -1,8 +1,8 @@
 import sys
 import csv
-from PyQt5 import QtWidgets, QtCore, QtGui
+from PyQt5 import QtWidgets, QtCore, QtGui, QtSql
 from PyQt5.QtGui import QIcon
-from PyQt5.QtWidgets import QApplication, QMessageBox 
+from PyQt5.QtWidgets import QApplication, QMessageBox, QAction, QMenu
 import json
 import os
 import sqlite3
@@ -18,9 +18,22 @@ bank_synapsys_sheet_ID = 8999703313442692 #name: IMS PROGRAM 1 Agent : Banking S
 cu_synapsys_sheet_ID = 846684570838916 # name: IMS PROGRAM 1 Agent : CU Synapsys
 trainer_fi_sheet_ID = 2405415385360260 # name: IMS PROGRAM Trainer Script Synapsys
 
+
 # create db in memory Connection and Cursor objects
-db = sqlite3.connect(':memory:')
-cur = db.cursor()
+db = QtSql.QSqlDatabase.addDatabase('QSQLITE')
+db.setDatabaseName(':memory:')  # For an in-memory database
+db.open()
+query = QtSql.QSqlQuery()
+
+if not db.open():
+    QtWidgets.QMessageBox.critical(None, "Cannot open database",
+                                   "Unable to establish a database connection.\n"
+                                   "Click Cancel to exit.", QtWidgets.QMessageBox.Cancel)
+
+#db = sqlite3.connect(':memory:')
+#cur = db.cursor()
+
+
 
 # Initialize Smartsheet client
 smart = Smartsheet()
@@ -34,7 +47,7 @@ cu_synapsys_sheet = smart.Sheets.get_sheet(cu_synapsys_sheet_ID)
 agent_list_sheet = smart.Sheets.get_sheet(agent_list_sheet_ID)
 trainer_fi_sheet = smart.Sheets.get_sheet(trainer_fi_sheet_ID)
 
-def showWarning(title, body, event = None):
+def show_warning(title, body, event = None):
 
     msgBox = QMessageBox()
     msgBox.setIcon(QMessageBox.Warning)
@@ -58,7 +71,7 @@ def get_bank_core_data(fi_name):
     return None, None
 
 # create bank list table in database
-cur.execute("CREATE TABLE banks (ID INTEGER PRIMARY KEY, fi_name TEXT, fi_syn TEXT, fi_type TEXT, bank_core TEXT, partition TEXT)")
+query.exec_("CREATE TABLE banks (ID INTEGER PRIMARY KEY, fi_name TEXT, fi_syn TEXT, fi_type TEXT, bank_core TEXT, partition TEXT)")
 db.commit()
 
 #iterate through both synapsys script sheets and return the synapsys bank number from the corresponding smartsheet for the FI name input
@@ -123,8 +136,12 @@ try:
             bankcount += 1
             print(f'Loaded {values[0]} with Synapsys Bank Number of {values[1]}, Core User of {values[3]} and Partition of {values[4]}')
         # insert row into table
-        cur.execute("INSERT INTO banks VALUES (NULL, ?, ?, ?, ?, ?)", (values[0], values[1], values[2], values[3], values[4]))
-    db.commit()
+        query.prepare("INSERT INTO banks VALUES (NULL, :value0, :value1, :value2, :value3, :value4)")
+        for i in range(len(values)):
+            query.bindValue(f":value{i}", values[i])
+
+        query.exec_()
+        db.commit()
     print(f"Loaded {bankcount} Banks and {cucount} CU's from Current FI Servicing Smartsheet")
 except:
     #show_warning()
@@ -157,10 +174,21 @@ class MainWindow(QtWidgets.QMainWindow):
         main_style = "background-color: #1a3668; color: white; font-family: 'Poppins'; font-size: 16px"
         button_style = "background-color: #1a3668; color: white; font-family: 'Poppins';"
         entry_style = "background-color: white; color: black; font-family: 'Poppins';"
+        checkbox_style = '''         
+            QCheckBox::indicator {
+                height: 20px;
+                width: 20px;
+            }
+            QCheckBox:indicator:checked {
+                image: url('C:/Users/cbrichardson/OneDrive - Jack Henry & Associates/Documents/GitHub/IMS-Claim-Creator/master/Images/checkmark.png');
+            }
+        '''
         self.setStyleSheet(main_style)
     
         self.main_widget = QtWidgets.QWidget(self)
         self.layout = QtWidgets.QVBoxLayout(self.main_widget)
+        
+        
     
         self.init_dropdown = QtWidgets.QComboBox()
         self.init_dropdown.addItem('Please select an option')
@@ -174,6 +202,9 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.stack = QtWidgets.QStackedWidget(self)
         self.layout.addWidget(self.stack)
+
+
+        
 
         # Single Agent widgets
         self.opt1_widget = QtWidgets.QWidget()
@@ -197,20 +228,17 @@ class MainWindow(QtWidgets.QMainWindow):
         self.opt1_layout.addWidget(self.agent_extension_entry)
         self.opt1_layout.addWidget(self.email_button)
         
-
-        
-        self.checkbox1_1 = QtWidgets.QCheckBox('Single Bank Core Claim')
-        self.checkbox1_2 = QtWidgets.QCheckBox('Single Synapsys')
-        self.checkbox1_3 = QtWidgets.QCheckBox('All Bank Core Claim')
-        self.checkbox1_4 = QtWidgets.QCheckBox('All Bank Synapsys Claim')
-        self.checkbox1_5 = QtWidgets.QCheckBox('All CU Synapsys Claim')
-        self.checkbox1_6 = QtWidgets.QCheckBox('Trainer Claim')
-        self.opt1_layout.addWidget(self.checkbox1_1)
-        self.opt1_layout.addWidget(self.checkbox1_2)
-        self.opt1_layout.addWidget(self.checkbox1_3)
-        self.opt1_layout.addWidget(self.checkbox1_4)
-        self.opt1_layout.addWidget(self.checkbox1_5)
-        self.opt1_layout.addWidget(self.checkbox1_6)
+        self.checkboxes = [
+            QtWidgets.QCheckBox('Single Bank Core Claim'),
+            QtWidgets.QCheckBox('Single Synapsys'),
+            QtWidgets.QCheckBox('All Bank Core Claim'),
+            QtWidgets.QCheckBox('All Bank Synapsys Claim'),
+            QtWidgets.QCheckBox('All CU Synapsys Claim'),
+            QtWidgets.QCheckBox('Trainer Claim')
+        ]
+        for checkbox in self.checkboxes:
+            self.opt1_layout.addWidget(checkbox)
+            checkbox.setStyleSheet(checkbox_style)
         self.clear = QtWidgets.QPushButton('Clear')
         self.opt1_layout.addWidget(self.clear)
         
@@ -245,6 +273,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.layout.addWidget(self.queue)
         self.queue.setStyleSheet(entry_style)
 
+
+
         # Buttons for processing and removing queue entries
         self.process_button = QtWidgets.QPushButton('Process Queue')
         self.process_button.clicked.connect(self.process_queue)
@@ -261,8 +291,35 @@ class MainWindow(QtWidgets.QMainWindow):
         self.process_button.hide()
         self.remove_button.hide()
         
-        self.clear.clicked.connect(lambda: ClearUndo()(self))
+        self.clear.clicked.connect(self.clear_fields)
+        
+        # Create the File menu
+        menubar = self.menuBar()
+        fileMenu = menubar.addMenu('File')
 
+        newAction = QAction(QIcon('new.png'), 'Show FI Data Table', self)
+        newAction.setShortcut('Ctrl+W')
+        newAction.setStatusTip('Create new file')
+        newAction.triggered.connect(self.onNew)
+
+        fileMenu.addAction(newAction)
+
+        
+
+        #Show SQL table of data in seperate window
+        self.model = self.create_model()
+        column_names = ["null", "FI Name", "Synapsys Number", "Bank or CU", "Bank Core User", "Partition"]
+        for i in range(self.model.columnCount()):
+            self.model.setHeaderData(i, QtCore.Qt.Horizontal, column_names[i])
+        
+        self.view = self.create_view(self.model)
+        self.view.setWindowTitle("FI Data")
+        self.view.resize(733, 800)
+        self.view.show()
+
+    def onNew(self):
+        self.view.show()
+        
 
     def initial_update_ui(self, index):
         if index == 0: 
@@ -324,7 +381,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 extension_entry.setText(extension)
                 break
         if not found:
-                showWarning("Smartsheet Data Lookup Error", f"No extension found for the email {email}")
+                show_warning("Smartsheet Data Lookup Error", f"No extension found for the email {email}")
                 return
     
     #look up the extension in the extension field and get the corresponding email from the Agent List Smartsheet
@@ -335,7 +392,7 @@ class MainWindow(QtWidgets.QMainWindow):
         for row in agent_list_sheet.rows:
             extension = row.cells[extension_col_index].value
             if extension_entry.text() == '':
-                showWarning('Data Input Error', f'Please enter an extension!')
+                show_warning('Data Input Error', f'Please enter an extension!')
                 return
             elif extension == int(extension_entry.text()):
                 found = True
@@ -344,21 +401,16 @@ class MainWindow(QtWidgets.QMainWindow):
                 email_entry.setText(citjha_email)
                 break
         if not found:
-            showWarning('Smartsheet Lookup Error', f'No email address found for the extension {extension_entry.text()} on the Agent List Smartsheet!')
+            show_warning('Smartsheet Lookup Error', f'No email address found for the extension {extension_entry.text()} on the Agent List Smartsheet!')
     
     #Clear our fields out, save them to local variables for the undo function if we need to restore that data
-    def clear_undo(self):
+    def clear_fields(self):
         
         self.agent_email_entry.clear()
         self.agent_extension_entry.clear()
-        self.checkbox1_1.setChecked(False)
-        self.checkbox1_2.setChecked(False)
-        self.checkbox1_3.setChecked(False)
-        self.checkbox1_4.setChecked(False)
-        self.checkbox1_5.setChecked(False)
-        self.checkbox1_6.setChecked(False)
+        for checkbox in self.checkboxes:
+            checkbox.setChecked(False)
         
-        self.clear.setText('Undo')
         #QApplication.processEvents()
         pass
     
@@ -374,7 +426,22 @@ class MainWindow(QtWidgets.QMainWindow):
         print("Selected item removed")
         pass
     
-    
+    def create_model(self):
+        self.model = QtSql.QSqlTableModel()
+        self.model.setTable('banks')
+        self.model.setEditStrategy(QtSql.QSqlTableModel.OnFieldChange)
+        self.model.select()
+        return self.model
+
+
+    def create_view(self,model):
+        self.view = QtWidgets.QTableView()
+        self.view.setModel(model)
+        self.view.hideColumn(0)
+        self.view.resizeColumnsToContents()
+        return self.view
+
+"""
     
 class ClearUndo():
     # Use a class variable to keep track of how many times instance has been run
@@ -441,6 +508,7 @@ class ClearUndo():
                     MainWindow.checkbox1_[i].setChecked(False)
             self.clear = True
             return
+"""
 
 
 #Main loop

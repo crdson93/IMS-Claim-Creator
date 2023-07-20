@@ -15,7 +15,7 @@ import string
 app = Tk()
 
 #get the FI Servicing Sheets and Script sheets with Core user, partition and synapsys numbers and uses the API Token for the jhCC Support Smartsheet User.
-os.environ['SMARTSHEET_ACCESS_TOKEN'] = '8RfGAA0rhPQr6K6P6hBNsEHBESXiyZpCN5wkd'
+os.environ['SMARTSHEET_ACCESS_TOKEN'] = $API_TOKEN
 fi_servicing_sheet_ID = 494759136520068 # name: Current FI Servicing
 agent_list_sheet_ID = 735036543657860 # name: Agent List
 bank_core_sheet_ID = 7891957159618436 # name: IMS PROGRAM 1 Agent : Banking FI Cores
